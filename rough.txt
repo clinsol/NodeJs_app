@@ -1,0 +1,189 @@
+import { isUtf8 } from "buffer";
+import express from "express";
+import path from "path";
+import mongoose from "mongoose";
+import cookieParser from "cookie-parser";
+import { nextTick } from "process";
+import jwt from "jsonwebtoken";
+
+
+mongoose.connect("mongodb://127.0.0.1:27017",{
+    dbName:"backend",
+}).then(()=>{
+    console.log("Connected to mongoDB");
+}).catch(err=>{
+    console.log(err);
+});
+
+const userSchema=new mongoose.Schema({
+    Name:{
+        type:String,
+        required:true,
+    },
+    Age:Number,
+    Email:String,
+    Password:{
+        type:String,
+        required:true,
+    },
+});
+
+
+const User= mongoose.model("User",userSchema);
+
+
+const app = express();
+
+// const users=[];
+
+
+//Using middleware
+app.use(express.static(path.join(path.resolve(),"public")));
+app.use(express.urlencoded({extended:true}));
+app.use(cookieParser());
+
+//setting a view engine
+app.set("view engine", "ejs");
+
+
+const isAuthenticated = async(req, res,next) => {
+    const { token } = req.cookies;
+    if (token) {
+
+        const decode=jwt.verify(token,"Roshan1234");
+
+        req.user=await User.findById(decode._id);
+        
+        // console.log(decode);
+        next();
+    }else{
+        res.render("login");
+    }
+};
+
+
+app.get("/",isAuthenticated,(req,res)=>{
+    console.log(req.user);
+    res.render("logout",{name:req.user.Name});
+});
+
+app.get("/register",(req,res)=>{
+    res.render("register");
+});
+
+app.post("/register",async(req,res)=>{
+    const {name, age, email,password} =req.body;
+
+    let user=await User.findOne({email});
+     if(user){
+       return res.redirect("/login"); 
+     }
+
+    user=await User.create({
+        Name:name,
+        Age:age,
+        Email:email,
+        Password:password
+    });
+
+    const token=jwt.sign({
+        _id:user._id,
+    },"Roshan1234");
+    
+
+    res.cookie("token",token,{
+        httpOnly: true,
+        expires: new Date(Date.now() + 60 * 1000)
+    });
+    res.redirect("/");
+});
+
+
+app.post ("/login",async(req, res)=>{
+    // console.log(req.body);
+});
+
+app.get("/logout",(req, res)=>{
+    res.cookie("token", null, {
+        httpOnly: true,
+        expires: new Date(Date.now())
+    });
+    res.redirect("/");
+});
+
+
+// app.get("/",(req,res)=>{
+    // res.send("Hello world");
+    // res.sendStatus(400); 
+    // res.json({success:true,
+    //     product:[],
+    // });
+    // const path_location=path.resolve();
+    // res.sendFile(path.join(path_location,"./index.html"));
+    // res.render("index",{name:"Roshan"});
+    // console.log(req.cookies.token);
+    // const{token}=req.cookies;
+    // if(token){
+    //     res.render("logout");
+    // }else{
+        // res.render("login");
+    // }
+// });
+
+
+
+// app.get("/add",async(req,res)=>{
+//     await Message.create({
+        //Whatever name u have used in schema use the same while entering data
+//         Name:"RoshanB",
+//         Age:23,
+//         Email:"sample1@gmail.com"
+//     }).then(()=>{
+//         res.send("Nice");
+//     }).catch((err)=>{
+//         console.log(err);
+//     });
+// });
+
+
+// app.get("/Success",(req,res)=>{
+    // const user=users[users.length-1];
+//     const formData={
+//         username:req.body.name,
+//         Age:req.body.age,
+//         Email:req.body.email
+//     };
+//     res.render("Success",{username:formData.username});
+// });
+
+
+// app.post("/contact",async(req, res)=>{
+    // console.log(req.body);
+    //users is a local array made for understanding
+    // users.push({
+    //     username:req.body.name,
+    //     Age:req.body.age,
+    //     Email:req.body.email
+    // });
+//    const {name, age, email} =req.body;
+//    await Message.create({
+//     Name:name,
+//     Age:age,
+//     Email:email
+// });
+//     res.redirect("./Success");
+// });
+
+// app.get("/users", (req, res)=>{
+//     res.json({
+//         users,
+//     });
+// });
+
+
+app.listen(5000,()=>{
+    console.log("listening at port 5000 ");
+});
+
+
+This is the actual code
